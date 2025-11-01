@@ -27,27 +27,58 @@ export default function App() {
     setLoading(true);
     setMsg("");
     try {
-      setCars(await getCars(q, category));
-    } catch {
-      setMsg("⚠️ Error fetching cars");
+      const carData = await getCars(q, category);
+      setCars(carData);
+    } catch (error) {
+      setMsg("⚠️ Error fetching cars. Please try again.");
+      console.error("Error fetching cars:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   function validateForm() {
     const newErrors = {};
     
-    if (!form.from) newErrors.from = "Start date is required";
-    if (!form.to) newErrors.to = "End date is required";
-    if (form.from && form.to && new Date(form.from) >= new Date(form.to)) {
-      newErrors.to = "End date must be after start date";
+    // Date validation
+    if (!form.from.trim()) newErrors.from = "Pick-up date is required";
+    if (!form.to.trim()) newErrors.to = "Return date is required";
+    if (form.from && form.to) {
+      const startDate = new Date(form.from);
+      const endDate = new Date(form.to);
+      if (startDate >= endDate) {
+        newErrors.to = "Return date must be after pick-up date";
+      }
+      if (startDate < new Date()) {
+        newErrors.from = "Pick-up date cannot be in the past";
+      }
     }
-    if (!form.user.trim()) newErrors.user = "Name is required";
-    if (!form.email.trim()) newErrors.email = "Email is required";
-    if (!form.phone.trim()) newErrors.phone = "Phone is required";
+    
+    // Personal information validation
+    if (!form.user.trim()) newErrors.user = "Full name is required";
+    if (!form.email.trim()) {
+      newErrors.email = "Email address is required";
+    } else if (!isValidEmail(form.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+    if (!form.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!isValidPhone(form.phone)) {
+      newErrors.phone = "Please enter a valid phone number";
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  }
+
+  function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  function isValidPhone(phone) {
+    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+    return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
   }
 
   function resetForm() {
@@ -55,16 +86,6 @@ export default function App() {
     setErrors({});
     setSelected(null);
     setMsg("");
-  }
-
-  function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
   }
 
   async function handleBook() {
@@ -77,19 +98,17 @@ export default function App() {
     setMsg("");
     try {
       await bookCar({ ...form, carId: selected.id });
-      setMsg("✅ Booking successful!");
+      setMsg("✅ Booking successful! We have sent a confirmation to your email.");
       setTimeout(() => {
         resetForm();
-      }, 1500);
-    } catch (e) {
-      // Handle 409 conflict with specific date information
-      let errorMessage = "❌ Booking failed";
+      }, 2000);
+    } catch (error) {
+      let errorMessage = "❌ Booking failed. Please try again.";
       
-      if (e.response?.data?.message) {
-        // Use the backend's detailed message
-        errorMessage = `🚫 ${e.response.data.message}`;
-      } else if (e.message) {
-        errorMessage = `❌ ${e.message}`;
+      if (error.response?.data?.message) {
+        errorMessage = `🚫 ${error.response.data.message}`;
+      } else if (error.message) {
+        errorMessage = `❌ ${error.message}`;
       }
       
       setMsg(errorMessage);
@@ -136,13 +155,15 @@ export default function App() {
 
       <div className="filters">
         <input
-          placeholder="Search by name"
+          placeholder="Search cars by name..."
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          className="search-input"
         />
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
+          className="category-select"
         >
           <option value="">All Categories</option>
           <option value="economy">Economy</option>
@@ -152,7 +173,7 @@ export default function App() {
         </select>
       </div>
 
-      {loading && <p className="loading">Loading cars...</p>}
+      {loading && <p className="loading">Loading available cars...</p>}
       
       {/* Global success message (outside popup) */}
       {msg && msg.includes("✅") && (
@@ -162,28 +183,35 @@ export default function App() {
       )}
 
       <div className="car-grid">
-        {cars.map((c) => (
-          <div
-            key={c.id}
-            className="car-card"
-            onClick={() => {
-              setSelected(c);
-              setMsg("");
-            }}
-          >
-            <img src={c.image} alt={c.name} />
-            <div className="car-info">
-              <h4>{c.name}</h4>
-              <p>
-                {c.category} • ${c.price}/day
-              </p>
-              <div className="car-features">
-                <span>⭐ {c.rating || "4.5"}</span>
-                <span>🔧 {c.transmission || "Automatic"}</span>
+        {cars.length === 0 && !loading ? (
+          <div className="no-cars">
+            <p>No cars found matching your criteria. Try adjusting your search.</p>
+          </div>
+        ) : (
+          cars.map((car) => (
+            <div
+              key={car.id}
+              className="car-card"
+              onClick={() => {
+                setSelected(car);
+                setMsg("");
+              }}
+            >
+              <img src={car.image} alt={car.name} />
+              <div className="car-info">
+                <h4>{car.name}</h4>
+                <p>
+                  {car.category} • {car.price} KD/day
+                </p>
+                {car.transmission && (
+                  <div className="car-features">
+                    <span>🔧 {car.transmission}</span>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {selected && (
@@ -205,7 +233,10 @@ export default function App() {
               <img src={selected.image} alt={selected.name} />
               <div>
                 <h4>{selected.name}</h4>
-                <p>{selected.category} • ${selected.price}/day</p>
+                <p>{selected.category} • {selected.price} KD/day</p>
+                {selected.transmission && (
+                  <p className="car-detail">Transmission: {selected.transmission}</p>
+                )}
               </div>
             </div>
 
@@ -234,6 +265,7 @@ export default function App() {
                     className={errors.from ? "error" : ""}
                     min={new Date().toISOString().slice(0, 16)}
                     disabled={bookingLoading}
+                    placeholder="Select pick-up date and time"
                   />
                   {errors.from && <span className="error-text">{errors.from}</span>}
                 </div>
@@ -247,6 +279,7 @@ export default function App() {
                     className={errors.to ? "error" : ""}
                     min={form.from || new Date().toISOString().slice(0, 16)}
                     disabled={bookingLoading}
+                    placeholder="Select return date and time"
                   />
                   {errors.to && <span className="error-text">{errors.to}</span>}
                 </div>
@@ -256,7 +289,7 @@ export default function App() {
             <div className="form-group">
               <label>Personal Information</label>
               <input
-                placeholder="Full Name *"
+                placeholder="Enter your full name *"
                 value={form.user}
                 onChange={(e) => handleInputChange("user", e.target.value)}
                 className={errors.user ? "error" : ""}
@@ -266,7 +299,7 @@ export default function App() {
               
               <input
                 type="email"
-                placeholder="Email Address *"
+                placeholder="Enter your email address *"
                 value={form.email}
                 onChange={(e) => handleInputChange("email", e.target.value)}
                 className={errors.email ? "error" : ""}
@@ -276,7 +309,7 @@ export default function App() {
               
               <input
                 type="tel"
-                placeholder="Phone Number *"
+                placeholder="Enter your phone number *"
                 value={form.phone}
                 onChange={(e) => handleInputChange("phone", e.target.value)}
                 className={errors.phone ? "error" : ""}
@@ -290,12 +323,12 @@ export default function App() {
                 <h4>Booking Summary</h4>
                 <div className="price-details">
                   <div className="price-row">
-                    <span>${selected.price} × {rentalDays} day{rentalDays > 1 ? 's' : ''}</span>
-                    <span>${selected.price * rentalDays}</span>
+                    <span>{selected.price} KD × {rentalDays} day{rentalDays > 1 ? 's' : ''}</span>
+                    <span>{selected.price * rentalDays} KD</span>
                   </div>
                   <div className="price-total">
-                    <strong>Total</strong>
-                    <strong>${calculateTotal()}</strong>
+                    <strong>Total Amount</strong>
+                    <strong>{calculateTotal()} KD</strong>
                   </div>
                 </div>
               </div>
@@ -307,7 +340,7 @@ export default function App() {
                 onClick={handleBook}
                 disabled={bookingLoading}
               >
-                {bookingLoading ? "Booking..." : `Confirm Booking - $${calculateTotal()}`}
+                {bookingLoading ? "Processing Booking..." : `Confirm Booking - ${calculateTotal()} KD`}
               </button>
               <button 
                 className="btn-cancel" 
