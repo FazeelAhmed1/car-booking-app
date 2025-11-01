@@ -1,0 +1,7 @@
+[
+  { "id": 1, "name": "Toyota Corolla", "category": "economy", "price": 20, "image": "https://picsum.photos/seed/corolla/320/200" },
+  { "id": 2, "name": "BMW X5", "category": "suv", "price": 80, "image": "https://picsum.photos/seed/x5/320/200" },
+  { "id": 3, "name": "Tesla Model 3", "category": "electric", "price": 70, "image": "https://picsum.photos/seed/tesla3/320/200" },
+  { "id": 4, "name": "Range Rover Sport", "category": "luxury", "price": 100, "image": "https://picsum.photos/seed/range/320/200" },
+  { "id": 5, "name": "Nissan Sunny", "category": "economy", "price": 18, "image": "https://picsum.photos/seed/sunny/320/200" }
+]

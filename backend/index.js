@@ -1,0 +1,12 @@
+import express from "express";
+import cors from "cors";
+import fs from "fs";
+const app = express();
+app.use(cors());
+app.use(express.json());
+const cars = JSON.parse(fs.readFileSync(new URL("./mock-data.json", import.meta.url)));
+let bookings = [];
+app.get("/cars",(req,res)=>{const{q="",category=""}=req.query;const filtered=cars.filter(c=>(!q||c.name.toLowerCase().includes(q.toLowerCase()))&&(!category||c.category.toLowerCase()===category.toLowerCase()));res.json(filtered);});
+app.post("/bookings",(req,res)=>{const{carId,from,to,user}=req.body;if(!carId||!from||!to||!user)return res.status(400).json({message:"Missing fields"});const f=new Date(from),t=new Date(to);if(isNaN(f)||isNaN(t)||f>t)return res.status(400).json({message:"Invalid dates"});if(bookings.find(b=>b.carId===carId&&new Date(b.from)<=t&&new Date(b.to)>=f))return res.status(409).json({message:"Car already booked in that range"});const nb={id:bookings.length+1,carId,from,to,user};bookings.push(nb);res.status(201).json(nb);});
+app.get("/",(_,res)=>res.send("API running"));
+app.listen(4000,()=>console.log("✅ Backend running on 4000"));
